@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from get_input import get_input, line_parser
+from itertools import permutations
 import functools
 import re
 
@@ -35,10 +36,10 @@ def test_part1():
             assert False
 
 def part2(steps, start='fbgdceah'):
-    pwd = start
-    for step in reversed(steps):
-        pwd = step(pwd, reverse=True)
-    return pwd
+    for perm in permutations(sorted(list(start)), len(start)):
+        print(''.join(perm))
+        if start == part1(steps, start=''.join(perm)):
+            return ''.join(perm)
 
 def test_part2():
     lines = [
@@ -60,14 +61,15 @@ def test_part2():
 
 def parse(line):
     def pwd_func(func, *args, **kwargs):
+        my_args = list(args)
         @functools.wraps(func)
         def wrapper(pwd, reverse=False):
             if reverse and func == rotate_pos:
                 swaps = {'left': 'right', 'right': 'left'}
-                args[0] = swaps[args[0]]
+                my_args[0] = swaps[my_args[0]]
             elif reverse and func == rotate:
                 kwargs['direction'] = 'left'
-            return func(pwd, *args, **kwargs)
+            return func(pwd, *my_args, **kwargs)
         return wrapper
     for regex, func in FUNCS.items():
         m = re.match(regex, line)
@@ -111,8 +113,25 @@ def rotate(pwd, letter, direction='right'):
     if direction == 'right':
         index += 1 if index < 4 else 2
     elif direction == 'left':
-        index = 0
+        assert len(pwd) == 8
+        if index % 2 == 1:
+            index = (index + 1) // 2
+        else:
+            index = {0:0, 2:4, 4:7, 6:8}[index]
     return rotate_pos(pwd, direction, index)
+
+# abcdefg -> d -> cdefgab, index + index + 1 if index < 4 else 2
+
+# i | s | 1 2 3 4 5 6 7 8 9 
+# 0 | 1 | 0 1 1 1 1 1 1 1 1
+# 1 | 2 |   1 0 3 3 3 3 3 3
+# 2 | 3 |     2 1 0 6 6 5 6
+# 3 | 4 |       3 2 1 0 7 7
+# 4 | 6 |         0 4 3 2 1
+# 5 | 7 |           0 5 4 3
+# 6 | 8 |             0 6 5
+# 7 | 9 |               0 7
+
 
 def swap(pwd, a, b):
     return swap_pos(pwd, pwd.index(a), pwd.index(b))
