@@ -21,5 +21,15 @@ def get_input(day, year):
             f.write(r.text)
         return r.text
 
-def line_parser(text, parse=int, seperator='\n'):
-    return [parse(item) for item in text.split(seperator) if item != '']
+def line_parser(text, parse=int, seperator='\n', numbered=False):
+    items = []
+    for i, item in enumerate(text.split(seperator)):
+        if item == '':
+            continue
+        if numbered:
+            parsed = parse(item, i)
+        else:
+            parsed = parse(item)
+        if parsed is not None:
+            items.append(parsed)
+    return items
