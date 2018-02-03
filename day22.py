@@ -26,47 +26,30 @@ def part1(nodes):
         pairs.add((a, b))
     return len(pairs)
 
-def part2(nodes):
-    seen = set()
-    queue = [(0, build(nodes))]
-    while True:
-        step, state = queue.pop(0)
-        if state in seen:
-            continue
-        seen.add(state)
-        print(step)
-        for move in moves(state):
-            if complete(move):
-                return step + 1
-            queue.append((step + 1, move))
+def part2(nodes, upper=100):
+    print(build(nodes, upper))
+    # queue = [(0, zero, state)]
+    # seen = set()
+    # while queue:
+    #     steps, (zx, zy), state = queue.pop(0)
+    #     if state in seen:
+    #         continue
+    #     for mx, my in [(zx+1, zy), (zx-1, zy), 
+    #             (zx, zy+1), (zx, zy-1)]:
+    #         if not (0 <= my < len(state)) 
 
-def build(nodes):
-    max_x = max(n.x for n in nodes)
-    max_y = max(n.y for n in nodes)
-    state = [[None for _ in range(max_x+1)] for _ in range(max_y+1)]
-    for node in nodes:
-        state[node.y][node.x] = node
-    return tuple(tuple(i for i in row) for row in state)
+    #     print(row)
 
-def moves(state):
-    zeros = []
-    for row in state:
-        for item in row:
-            if item.used == 0:
-                zeros.append(item)
-    assert len(zeros) == 1
-    zx, zy = zeros[0].x, zeros[0].y
-    for m, n in [(zx+1, zy), (zx-1, zy), (zx, zy+1), (zx, zy-1)]:
-        if 0 <= n < len(state) and 0 <= m < len(state[n]) and \
-                state[zy][zx].size >= state[n][m].used:
-            clone = deepcopy(state)
-            zero, move = clone[zy][zx], clone[n][m]
-            zero.used, move.used = move.used, 0
-            yield clone
-
-def complete(state):
-    s = state[0][0]
-    return s.x == len(state[0]) and s.y == 0 
+def build(nodes, full_limit):
+    max_x, max_y = 0, 0
+    full_nodes = set()
+    for n in nodes:
+        max_x, max_y = max(max_x, n.x), max(max_y, n.y)
+        if n.used == 0:
+            zero = (n.x, n.y)
+        elif n.used > full_limit:
+            full_nodes.add((n.x, n.y))
+    return (max_x, max_y), zero, full_nodes
 
 def parse(line, i):
     if i < 2:
