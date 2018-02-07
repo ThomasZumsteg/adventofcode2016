@@ -2,31 +2,66 @@
 
 from get_input import get_input, line_parser
 import re
+import inspect
 from functools import wraps
 
 def part1(program):
     while 0 <= program.f_pointer < len(program):
+        print(program)
         program.step()
+    return program.a
+
+TEST_LINES = """cpy 2 a
+tgl a
+tgl a
+tgl a
+cpy 1 a
+dec a
+dec a"""
+
+def test_part1():
+    program = Assembunny.parse(TEST_LINES)
+    assert 3 == part1(program)
 
 def part2(lines):
     pass
 
-class Integer(object):
-    def __init__(self, value):
-        self.value = int(value)
+class Register(object):
+    def __init__(self, state, value):
+        self.state = state
+        self.value = value
 
     def get(self):
-        return self.value
+        try:
+            return int(self.value)
+        except ValueError:
+            return getattr(self.state, self.value)
+
+    def set(self, value):
+        return setattr(self.state, self.value, value)
+
+    def __getitem__(self, key):
+        return getattr(self.state, self.value)[key]
 
 class Command(object):
-    def __init__(self, func, regex, register):
-        print("__init__({}, {}, {})".format(func, regex, register))
+    def __repr__(self):
+        return "{}{}".format(self.func.__name__, self.args)
+
+    def __init__(self, func, regex, args):
+        # print("__init__({}, {}, {})".format(func, regex, args))
         self.func = func
         self.regex = regex
-        self.register = register 
+        self.args = args
 
     def __call__(self, state):
-        return self.func(*args, **kwargs)
+        i = 0
+        args = []
+        for a in inspect.signature(self.func).parameters.keys():
+            if i < len(self.args):
+                a = self.args[i]
+                i += 1
+            args.append(Register(state, a))
+        return self.func(*args)
 
     @staticmethod
     def command(regex, storage=None):
@@ -42,10 +77,16 @@ class Command(object):
 class Assembunny(object):
     commands = {}
 
+    def __repr__(self):
+        regestry = {k: v for k, v in self.__dict__.items() if type(v) is int and k != 'f_pointer'}
+        return '< {} {} - {}>'.format(self.f_pointer, self.program[self.f_pointer], regestry)
+
     def __init__(self, program, registers, f_pointer=0):
         self.f_pointer = f_pointer
         self.program = program
-        self.registers = registers
+        for r, v in registers.items():
+            assert not hasattr(self, r)
+            setattr(self, r, 0)
 
     def step(self):
         self.program[self.f_pointer](self)
@@ -61,13 +102,15 @@ class Assembunny(object):
             for regex, func in Assembunny.commands.items():
                 m = re.match(regex, line)
                 if m is not None:
-                    print(func)
                     program.append(func(*m.groups()))
                     break
         registers = {}
         for step in program:
-            for r in step.register:
-                registers[r] = 0
+            for r in step.args:
+                try:
+                    int(r)
+                except ValueError:
+                    registers[r] = 0
         return Assembunny(program, registers)
 
     @Command.command(r'cpy (\S+) (\S+)', commands)
@@ -75,30 +118,31 @@ class Assembunny(object):
         y.set(x.get())
 
     @Command.command(r'dec (\S+)', commands)
-    def dec(x, value=1):
-        inc(x, value=-1)
+    def dec(x):
+        x.set(x.get() - 1)
 
     @Command.command(r'inc (\S+)', commands)
-    def inc(x, value=1):
-        x.set(x.get() + value)
+    def inc(x):
+        x.set(x.get() + 1)
 
     @Command.command(r'jnz (\S+) (\S+)', commands)
-    def jnz(x, y):
+    def jnz(x, y, f_pointer):
         if x.get() != 0:
-            self.f_pointer += y.get() - 1
+            f_pointer.set(y.get() - 1 + f_pointer.get())
 
     @Command.command(r'tgl (\S+)', commands)
-    def tgl(a):
+    def tgl(a, program, f_pointer):
         mapping = {
-            inc: dec,
-            dec: inc,
-            tgl: inc,
-            jnz: cpy,
-            cpy: jnz,
+            Assembunny.inc: Assembunny.dec,
+            Assembunny.dec: Assembunny.inc,
+            Assembunny.tgl: Assembunny.inc,
+            Assembunny.jnz: Assembunny.cpy,
+            Assembunny.cpy: Assembunny.jnz,
             }
-        p = self.f_pointer + a.get()
-        instruction = self.program[p]
-        self.program[p] = mapping[instruction](instruction.args)
+        print(mapping)
+        p = f_pointer.get() + a.get()
+        instruction = program[p]
+        program[p] = mapping[instruction.func](instruction.args)
 
 if __name__ == '__main__':
     assembunny = Assembunny.parse(get_input(day=23, year=2016))
