@@ -4,10 +4,11 @@ from get_input import get_input, line_parser
 import re
 import inspect
 from functools import wraps
+from copy import deepcopy
 
 def part1(program):
+    program.a = 7
     while 0 <= program.f_pointer < len(program):
-        print(program)
         program.step()
     return program.a
 
@@ -23,8 +24,21 @@ def test_part1():
     program = Assembunny.parse(TEST_LINES)
     assert 3 == part1(program)
 
-def part2(lines):
-    pass
+def part2(program):
+    for i in range(2, 20, 2):
+        program.f_pointer = 16
+        program.c = i
+        program.step()
+    program.a = 43589145600 # 14!/2
+    program.b = 1
+    program.c = 2
+    program.d = 0
+    program.f_pointer = 18
+
+    while 0 <= program.f_pointer < len(program):
+        print(program)
+        program.step()
+    return program.a
 
 class Register(object):
     def __init__(self, state, value):
@@ -36,12 +50,20 @@ class Register(object):
             return int(self.value)
         except ValueError:
             return getattr(self.state, self.value)
+        except TypeError:
+            return self.value
 
     def set(self, value):
         return setattr(self.state, self.value, value)
 
+    def __len__(self):
+        return len(getattr(self.state, self.value))
+
     def __getitem__(self, key):
         return getattr(self.state, self.value)[key]
+
+    def __setitem__(self, key, value):
+        getattr(self.state, self.value)[key] = value
 
 class Command(object):
     def __repr__(self):
@@ -79,7 +101,7 @@ class Assembunny(object):
 
     def __repr__(self):
         regestry = {k: v for k, v in self.__dict__.items() if type(v) is int and k != 'f_pointer'}
-        return '< {} {} - {}>'.format(self.f_pointer, self.program[self.f_pointer], regestry)
+        return '< {:2} {:15} - {{{}}}>'.format(self.f_pointer, repr(self.program[self.f_pointer]), ', '.join('{}: {:<7}'.format(k, v) for k, v in regestry.items()))
 
     def __init__(self, program, registers, f_pointer=0):
         self.f_pointer = f_pointer
@@ -133,18 +155,47 @@ class Assembunny(object):
     @Command.command(r'tgl (\S+)', commands)
     def tgl(a, program, f_pointer):
         mapping = {
-            Assembunny.inc: Assembunny.dec,
-            Assembunny.dec: Assembunny.inc,
-            Assembunny.tgl: Assembunny.inc,
-            Assembunny.jnz: Assembunny.cpy,
-            Assembunny.cpy: Assembunny.jnz,
+            'inc': Assembunny.dec,
+            'dec': Assembunny.inc,
+            'tgl': Assembunny.inc,
+            'jnz': Assembunny.cpy,
+            'cpy': Assembunny.jnz,
             }
-        print(mapping)
         p = f_pointer.get() + a.get()
-        instruction = program[p]
-        program[p] = mapping[instruction.func](instruction.args)
+        if 0 <= p < len(program):
+            instruction = program[p]
+            program[p] = mapping[instruction.func.__name__](*instruction.args)
 
 if __name__ == '__main__':
     assembunny = Assembunny.parse(get_input(day=23, year=2016))
-    print("Part 1: {}".format(part1(assembunny)))
-    print("Part 2: {}".format(part2(assembunny)))
+    print("Part 1: {}".format(part1(deepcopy(assembunny))))
+    print("Part 2: {}".format(part2(deepcopy(assembunny))))
+
+"""
+0  cpy a b
+1  dec b
+    2  cpy a d
+    3  cpy 0 a
+        4  cpy b c  # d * b -> a
+            5  inc a  # add b a, 
+            6  dec c
+            7  jnz c -2 # c is zero
+        8  dec d     
+        9  jnz d -5
+    10 dec b
+    11 cpy b c
+    12 cpy c d
+        13 dec d  # b * 2 -> c
+        14 inc c
+        15 jnz d -2
+    16 tgl c  # c = 2
+    17 cpy -16 c # start here with {a = 14!, b = 1, c = 2, d = 0}
+    18 jnz 1 c # toggle -> cpy 1 c
+19 cpy 93 c  # c = 93
+    20 jnz 80 d  # toggle -> copy 80 d
+        21 inc a     # a + d -> a
+        22 inc d     # toggle -> dec d
+        23 jnz d -2
+    24 inc c     # toggle -> dec c
+    25 jnz c -5
+"""
