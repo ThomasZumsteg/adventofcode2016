@@ -25,18 +25,19 @@ def test_part1():
     assert 3 == part1(program)
 
 def part2(program):
+    # Toggle values
     for i in range(2, 20, 2):
         program.f_pointer = 16
         program.c = i
         program.step()
-    program.a = 43589145600 # 14!/2
+    # Skip to the end
+    program.a = 479001600 # 12!
     program.b = 1
     program.c = 2
     program.d = 0
     program.f_pointer = 18
 
     while 0 <= program.f_pointer < len(program):
-        print(program)
         program.step()
     return program.a
 
@@ -171,6 +172,7 @@ if __name__ == '__main__':
     print("Part 1: {}".format(part1(deepcopy(assembunny))))
     print("Part 2: {}".format(part2(deepcopy(assembunny))))
 
+# static analysis
 """
 0  cpy a b
 1  dec b
@@ -189,7 +191,7 @@ if __name__ == '__main__':
         14 inc c
         15 jnz d -2
     16 tgl c  # c = 2
-    17 cpy -16 c # start here with {a = 14!, b = 1, c = 2, d = 0}
+    17 cpy -16 c # START HERE with {a = a!, b = 1, c = 2, d = 0}
     18 jnz 1 c # toggle -> cpy 1 c
 19 cpy 93 c  # c = 93
     20 jnz 80 d  # toggle -> copy 80 d
