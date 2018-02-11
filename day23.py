@@ -43,16 +43,17 @@ def part2(program):
 
 class Register(object):
     def __init__(self, state, value):
-        self.state = state
-        self.value = value
+        self.state = None 
+        try:
+            self.value = int(value)
+        except ValueError:
+            self.value = value
+            self.state = state
 
     def get(self):
-        try:
-            return int(self.value)
-        except ValueError:
-            return getattr(self.state, self.value)
-        except TypeError:
+        if self.state is None:
             return self.value
+        return getattr(self.state, self.value)
 
     def set(self, value):
         return setattr(self.state, self.value, value)
@@ -70,16 +71,17 @@ class Command(object):
     def __repr__(self):
         return "{}{}".format(self.func.__name__, self.args)
 
-    def __init__(self, func, regex, args):
+    def __init__(self, func, regex, args, func_args):
         # print("__init__({}, {}, {})".format(func, regex, args))
         self.func = func
         self.regex = regex
         self.args = args
+        self._func_args = func_args
 
     def __call__(self, state):
         i = 0
         args = []
-        for a in inspect.signature(self.func).parameters.keys():
+        for a in self._func_args:
             if i < len(self.args):
                 a = self.args[i]
                 i += 1
@@ -91,7 +93,8 @@ class Command(object):
         def wrapped(func):
             @wraps(func)
             def instruction(*args):
-                return Command(func, regex, args)
+                func_args = tuple(inspect.signature(func).parameters.keys())
+                return Command(func, regex, args, func_args)
             if storage is not None:
                 storage[regex] = instruction 
             return instruction
@@ -112,14 +115,15 @@ class Assembunny(object):
             setattr(self, r, 0)
 
     def step(self):
-        self.program[self.f_pointer](self)
+        result = self.program[self.f_pointer](self)
         self.f_pointer += 1
+        return result
 
     def __len__(self):
         return len(self.program)
 
-    @staticmethod
-    def parse(text):
+    @classmethod
+    def parse(cls, text):
         program = []
         for line in text.splitlines():
             for regex, func in Assembunny.commands.items():
@@ -127,6 +131,8 @@ class Assembunny(object):
                 if m is not None:
                     program.append(func(*m.groups()))
                     break
+            else:
+                raise ValueError("Unknown command: {}".format(line))
         registers = {}
         for step in program:
             for r in step.args:
@@ -134,7 +140,10 @@ class Assembunny(object):
                     int(r)
                 except ValueError:
                     registers[r] = 0
-        return Assembunny(program, registers)
+        return cls(program, registers)
+
+    def __hash__(self):
+        return hash(repr(self))
 
     @Command.command(r'cpy (\S+) (\S+)', commands)
     def cpy(x, y):
